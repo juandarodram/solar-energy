@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Monitoreo Solar</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: Arial;
+            background: #0f172a;
+            color: white;
+            text-align: center;
+        }
+
+        h1 {
+            color: #38bdf8;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .card {
+            background: #1e293b;
+            padding: 20px;
+            margin: 10px;
+            border-radius: 10px;
+            width: 200px;
+        }
+
+        canvas {
+            background: #1e293b;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>⚡ Monitoreo Solar</h1>
+
+<div class="container">
+    <div class="card">
+        <h3>Energía Total</h3>
+        <p id="energia">0</p>
+    </div>
+
+    <div class="card">
+        <h3>Potencia Promedio</h3>
+        <p id="promedio">0</p>
+    </div>
+
+    <div class="card">
+        <h3>Máxima</h3>
+        <p id="max">0</p>
+    </div>
+
+    <div class="card">
+        <h3>Mínima</h3>
+        <p id="min">0</p>
+    </div>
+
+    <div class="card">
+        <h3>Alertas</h3>
+        <p id="alertas" style="font-weight: bold;">Ninguna</p>
+    </div>
+</div>
+
+<h2>📈 Potencia en Tiempo Real</h2>
+<canvas id="chart" width="800" height="300"></canvas>
+
+<script>
+let chart;
+
+function crearGrafica() {
+    const ctx = document.getElementById('chart').getContext('2d');
+
+    chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Potencia (W)',
+                data: [],
+                borderColor: '#38bdf8',
+                borderWidth: 2,
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    ticks: { color: 'white' }
+                },
+                y: {
+                    ticks: { color: 'white' }
+                }
+            },
+            plugins: {
+                legend: {
+                    labels: { color: 'white' }
+                }
+            }
+        }
+    });
+}
+
+// 📊 Actualizar gráfica
+async function actualizarGrafica() {
+    try {
+        const res = await fetch('/api/metrics');
+        const datos = await res.json();
+
+        const ultimos = datos.slice(-10);
+
+        const labels = ultimos.map(d =>
+            new Date(d.timestamp).toLocaleTimeString()
+        );
+
+        const potencia = ultimos.map(d => d.potencia);
+
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = potencia;
+        chart.update();
+
+    } catch (error) {
+        console.error("Error en gráfica");
+    }
+}
+
+// 📈 Actualizar métricas
+async function cargarDatos() {
+    try {
+        const res = await fetch('/api/summary');
+        const data = await res.json();
+
+        document.getElementById('energia').innerText = data.energia_total || 0;
+        document.getElementById('promedio').innerText = data.potencia_promedio || 0;
+        document.getElementById('max').innerText = data.potencia_max || 0;
+        document.getElementById('min').innerText = data.potencia_min || 0;
+
+        // 🔥 SOLO ESTA PARTE CAMBIA
+        const alertasElemento = document.getElementById('alertas');
+
+        if (data.alertas && data.alertas.length > 0) {
+            alertasElemento.innerText = "⚠️ " + data.alertas.join(', ');
+            alertasElemento.style.color = "#ef4444";
+        } else {
+            alertasElemento.innerText = "✅ Sistema normal";
+            alertasElemento.style.color = "#22c55e";
+        }
+
+    } catch (error) {
+        console.error("Error cargando datos");
+    }
+}
+
+// 🚀 Inicializar
+crearGrafica();
+
+setInterval(() => {
+    actualizarGrafica();
+    cargarDatos();
+}, 3000);
+</script>
+
+<footer style="margin-top: 40px; padding: 10px; color: #94a3b8; font-size: 14px; border-top: 1px solid #334155;">
+    ⚡ by: Juan David Rodríguez
+</footer>
+
+</body>
+</html>
